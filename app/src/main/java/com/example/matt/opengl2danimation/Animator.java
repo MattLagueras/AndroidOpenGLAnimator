@@ -96,6 +96,10 @@ public class Animator
         }
     }
 
+    public void dealloc() {
+
+    }
+
     public TextureRegion getCurrentKeyframe() {
         return keyframes[currentFrame];
     }

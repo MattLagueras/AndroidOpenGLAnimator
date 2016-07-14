@@ -1,17 +1,10 @@
 package com.example.matt.opengl2danimation;
 
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
-import android.opengl.GLUtils;
 import android.opengl.Matrix;
-
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
-import java.nio.ShortBuffer;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -19,29 +12,31 @@ import javax.microedition.khronos.opengles.GL10;
 /**
  * Created by Matt on 6/27/2016.
  */
-public class AnimationRenderer implements GLSurfaceView.Renderer {
+public class GLRenderer implements GLSurfaceView.Renderer {
 
     // matrices
     private final float[] mtrxProjection = new float[16];
     private final float[] mtrxView = new float[16];
     private final float[] mtrxProjectionAndView = new float[16];
 
-    // View width and height
-    float mScreenWidth;
-    float mScreenHeight;
+    private AppRenderer renderer;
 
-    Texture tex;
-    Texture andTex;
-    Animator[] animators;
-    Sprite[] sprites;
+    // View width and height
+    float mViewWidth;
+    float mViewHeight;
 
     Context mContext;
     long mLastTime;
     int mProgram;
+    int clearcolor;
 
-    public AnimationRenderer(Context c) {
+    public float[] getMtrxProjectionAndView() {return mtrxProjectionAndView;}
+
+    public GLRenderer(Context c, AppRenderer r, int color) {
         mContext = c;
         mLastTime = -1;
+        renderer = r;
+        clearcolor = color;
     }
 
     public void onPause() {
@@ -62,56 +57,18 @@ public class AnimationRenderer implements GLSurfaceView.Renderer {
 
         float elapsedInSeconds = (now - mLastTime) / 1000f;
 
-        // Update our example
-
-        // Render our example
         render(elapsedInSeconds);
 
         mLastTime = now;
 
     }
 
-    private void setUpTestTexture() {
-        tex = new Texture(mContext,R.drawable.textureatlas);
-        andTex = new Texture(mContext,R.drawable.android);
-
-        TextureRegion[] regions = new TextureRegion[5];
-
-        regions[0] = new TextureRegion(tex,0,0,tex.getWidth() / 2,tex.getHeight() / 2);
-        regions[1] = new TextureRegion(tex,tex.getWidth() / 2,0,tex.getWidth() / 2,tex.getHeight() / 2);
-        regions[2] = new TextureRegion(tex,0,tex.getHeight() / 2,tex.getWidth() / 2,tex.getHeight() / 2);
-        regions[3] = new TextureRegion(tex,tex.getWidth() / 2,tex.getHeight() / 2,tex.getWidth() / 2,tex.getHeight() / 2);
-        regions[4] = new TextureRegion(andTex,0,0,andTex.getWidth(),andTex.getHeight());
-
-        animators = new Animator[3];
-
-        for(int i = 0; i < animators.length; i++) {
-            animators[i] = new Animator(regions, 1f - (i/3f));
-            animators[i].setPlayMode(Animator.PlayMode.LOOP);
-        }
-
-        sprites = new Sprite[3];
-
-        sprites[0] = new Sprite((int)mScreenWidth / 2, (int)mScreenHeight / 2, 512, 512);
-        sprites[1] = new Sprite((int)mScreenWidth / 4, (int)mScreenHeight / 4, 256, 256);
-        sprites[2] = new Sprite((int)900, (int)900, 128, 128);
-
-    }
-
-
     private void render(float deltaTime) {
 
-        // clear Screen and Depth Buffer,
-        // we have set the clear color as black.
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
 
-        for(int i = 0; i < animators.length; i++) {
-            animators[i].update(deltaTime);
-        }
-
-        for(int i = 0; i < sprites.length; i++) {
-            sprites[i].setRegion(animators[i].getCurrentKeyframe());
-            sprites[i].draw(mtrxProjectionAndView);
+        if(renderer != null) {
+            renderer.render(deltaTime,getMtrxProjectionAndView());
         }
 
     }
@@ -120,11 +77,11 @@ public class AnimationRenderer implements GLSurfaceView.Renderer {
     public void onSurfaceChanged(GL10 gl, int width, int height) {
 
         // We need to know the current width and height.
-        mScreenWidth = width;
-        mScreenHeight = height;
+        mViewWidth = width;
+        mViewHeight = height;
 
         // Redo the Viewport, making it fullscreen.
-        GLES20.glViewport(0, 0, (int) mScreenWidth, (int) mScreenHeight);
+        GLES20.glViewport(0, 0, (int) mViewWidth, (int) mViewHeight);
 
         // Clear our matrices
         for (int i = 0; i < 16; i++) {
@@ -134,7 +91,7 @@ public class AnimationRenderer implements GLSurfaceView.Renderer {
         }
 
         // Setup our screen width and height for normal sprite translation.
-        Matrix.orthoM(mtrxProjection, 0, 0f, mScreenWidth, 0.0f, mScreenHeight, 0, 50);
+        Matrix.orthoM(mtrxProjection, 0, 0f, mViewWidth, 0.0f, mViewHeight, 0, 50);
 
         // Set the camera position (View matrix)
         Matrix.setLookAtM(mtrxView, 0, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1.0f, 0.0f);
@@ -142,7 +99,10 @@ public class AnimationRenderer implements GLSurfaceView.Renderer {
         // Calculate the projection and view transformation
         Matrix.multiplyMM(mtrxProjectionAndView, 0, mtrxProjection, 0, mtrxView, 0);
 
-        setUpTestTexture();
+        if(renderer != null) {
+            renderer.onViewWidthChanged((int)mViewWidth, (int)mViewHeight);
+        }
+
 
     }
 
@@ -150,7 +110,15 @@ public class AnimationRenderer implements GLSurfaceView.Renderer {
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
 
         // Set the clear color to black
-        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1);
+
+        float red = 0.0f;
+        float green = 0.0f;
+        float blue = 0.0f;
+        float alpha = 0.0f;
+
+        GLES20.glClearColor(red,green,blue,alpha);
+        GLES20.glEnable(GLES20.GL_BLEND);
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
         // Create the shaders, solid color
         int vertexShader = TextureShader.loadShader(GLES20.GL_VERTEX_SHADER,

@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/OpenGl2dTest.iml" filepath="$PROJECT_DIR$/OpenGl2dTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/AndroidOpenGLAnimator.iml" filepath="$PROJECT_DIR$/AndroidOpenGLAnimator.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
   </component>
