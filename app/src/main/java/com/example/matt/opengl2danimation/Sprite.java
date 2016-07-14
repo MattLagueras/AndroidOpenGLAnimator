@@ -9,6 +9,8 @@ import java.nio.ShortBuffer;
 
 /**
  * Created by Matt on 6/29/2016.
+ *
+ * the x and y refer to the center position of the sprite
  */
 public class Sprite
 {
